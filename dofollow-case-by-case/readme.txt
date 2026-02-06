@@ -3,8 +3,8 @@ Contributors: apasionados, netconsulting
 Donate link: https://apasionados.es/
 Tags: dofollow, nofollow, rel nofollow, comment, comments, link, links, seo, shortcode
 Requires at least: 4.0
-Tested up to: 6.4
-Stable tag: 3.5.1
+Tested up to: 6.9
+Stable tag: 3.6.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -111,6 +111,9 @@ Of course we do. ;-)
 
 == Changelog ==
 
+= 3.6.0 (29jan2026) =
+* Overall security improvements and hardening.
+
 = 3.5.1 (12dec2023) =
 * Solved warnings in PHP 8.x - Trying to access array offset on value of type null in lines 557, 589, 592 & 595.
 
@@ -196,8 +199,8 @@ Of course we do. ;-)
 
 == Upgrade Notice ==
 
-= 3.5.1 =
-UPDATE: Solved warnings in PHP 8.x
+= 3.6.0 =
+UPDATE: Overall security improvements and hardening.
 
 == Contact ==
 
