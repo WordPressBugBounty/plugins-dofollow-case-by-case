@@ -1,10 +1,10 @@
 === DoFollow Case by Case ===
 Contributors: apasionados, netconsulting
 Donate link: https://apasionados.es/
-Tags: dofollow, nofollow, rel nofollow, comment, comments, link, links, seo, shortcode
+Tags: dofollow, nofollow, rel nofollow, comment, link, seo
 Requires at least: 4.0
 Tested up to: 6.9
-Stable tag: 3.6.0
+Stable tag: 3.6.1
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -99,6 +99,9 @@ If you find incompatibilities with other plugins (that do not have similar funci
 = Do you make use of Dofollow Case by Case yourself? = 
 Of course we do. ;-)
 
+= Are you part of the Wordfence Vulnerability Management Program? =
+Yes. Our ID is nm68hgolspm0zr5c4eb1wrfdkxosvwmn
+
 == Screenshots ==
 
 1. The "DoFollow Case by Case" main screen. Here you can add email addresses of commenters and URLs to the white lists.
@@ -110,6 +113,10 @@ Of course we do. ;-)
 
 
 == Changelog ==
+
+= 3.6.1 (29sep2026) =
+* Security fix: prevent unauthenticated stored XSS when hardening links in comment HTML (thanks to Wordfence for pointing this out to us).
+* Replaced raw rel-attribute regex rewriting with the WordPress HTML Tag Processor when available, with a sanitized compatibility fallback.
 
 = 3.6.0 (29jan2026) =
 * Overall security improvements and hardening.
@@ -199,8 +206,8 @@ Of course we do. ;-)
 
 == Upgrade Notice ==
 
-= 3.6.0 =
-UPDATE: Overall security improvements and hardening.
+= 3.6.1 =
+UPDATE: Security fix after Wordfence Vulnerability Report
 
 == Contact ==
 

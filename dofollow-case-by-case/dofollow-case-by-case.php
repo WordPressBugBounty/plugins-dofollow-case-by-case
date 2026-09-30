@@ -3,7 +3,7 @@
 Plugin Name: DoFollow Case by Case
 Plugin URI: https://apasionados.es/#utm_source=wpadmin&utm_medium=plugin&utm_campaign=wpdofollowplugin
 Description: DoFollow Case by Case allows you to selectively apply dofollow to comments and make links in pages or posts nofollow.
-Version: 3.6.0
+Version: 3.6.1
 Author: Apasionados, Apasionados del Marketing, NetConsulting
 Author URI: https://apasionados.es
 Text Domain: dofollow-case-by-case
@@ -706,42 +706,99 @@ function remove_DofollowAuthor( $commentAuthor ) {
 	);
 }
 
-// --- Helper: add target/rel safely to links
-function ndf_harden_comment_links( $html ) {
-	if ( ! is_string( $html ) || $html === '' ) {
+// --- Helper: safely update target/rel on links in comment HTML.
+/**
+ * Harden links in comment HTML without parsing HTML attributes with regular expressions.
+ *
+ * The previous implementation searched for rel= inside the raw opening tag. A crafted
+ * attribute value could therefore be mistaken for a real rel attribute and rewritten
+ * into executable attributes (stored XSS). We now sanitize the fragment first and use
+ * WordPress' HTML API where available.
+ *
+ * @param string $html            Comment HTML.
+ * @param bool   $should_dofollow Whether nofollow should be removed from link rel tokens.
+ * @return string
+ */
+function ndf_harden_comment_links( $html, $should_dofollow = false ) {
+	if ( ! is_string( $html ) || '' === $html ) {
 		return $html;
 	}
 
-	return preg_replace_callback( '/<a\s+[^>]*>/i', function ( $m ) {
-		$tag = $m[0];
+	// Sanitize untrusted comment HTML before transforming it.
+	$html = wp_kses_post( $html );
 
-		// Ensure target=_blank
-		if ( stripos( $tag, 'target=' ) === false ) {
-			$tag = rtrim( $tag, '>' ) . ' target="_blank">';
-		}
+	if ( class_exists( 'WP_HTML_Tag_Processor' ) ) {
+		$processor = new WP_HTML_Tag_Processor( $html );
 
-		// Ensure rel contains noopener noreferrer. Preserve existing rel if present.
-		if ( preg_match( '/\srel=("|\')([^"\']*)(\1)/i', $tag, $rm ) ) {
-			$existing = $rm[2];
-			$tokens   = preg_split( '/\s+/', trim( $existing ) );
-			foreach ( array( 'noopener', 'noreferrer' ) as $t ) {
-				if ( ! in_array( $t, $tokens, true ) ) {
-					$tokens[] = $t;
+		while ( $processor->next_tag( 'a' ) ) {
+			$target = $processor->get_attribute( 'target' );
+			if ( null === $target || false === $target || '' === $target ) {
+				$processor->set_attribute( 'target', '_blank' );
+			}
+
+			$rel_value = $processor->get_attribute( 'rel' );
+			$tokens    = is_string( $rel_value ) ? preg_split( '/\s+/', trim( $rel_value ) ) : array();
+			$tokens    = array_values( array_filter( array_map( 'strval', (array) $tokens ) ) );
+
+			$removed_nofollow = false;
+			if ( $should_dofollow ) {
+				$tokens = array_values(
+					array_filter(
+						$tokens,
+						function ( $token ) use ( &$removed_nofollow ) {
+							if ( 0 === strcasecmp( $token, 'nofollow' ) ) {
+								$removed_nofollow = true;
+								return false;
+							}
+							return true;
+						}
+					)
+				);
+			}
+
+			if ( $removed_nofollow ) {
+				$has_external = false;
+				foreach ( $tokens as $token ) {
+					if ( 0 === strcasecmp( $token, 'external' ) ) {
+						$has_external = true;
+						break;
+					}
+				}
+				if ( ! $has_external ) {
+					$tokens[] = 'external';
 				}
 			}
-			$new_rel = implode( ' ', array_filter( $tokens ) );
-			$tag     = preg_replace(
-				'/\srel=("|\')([^"\']*)(\1)/i',
-				' rel="$new_rel"',
-				$tag,
-				1
-			);
-		} else {
-			$tag = rtrim( $tag, '>' ) . ' rel="external noopener noreferrer">';
+
+			foreach ( array( 'noopener', 'noreferrer' ) as $required_token ) {
+				$present = false;
+				foreach ( $tokens as $token ) {
+					if ( 0 === strcasecmp( $token, $required_token ) ) {
+						$present = true;
+						break;
+					}
+				}
+				if ( ! $present ) {
+					$tokens[] = $required_token;
+				}
+			}
+
+			if ( empty( $tokens ) ) {
+				$tokens = array( 'external', 'noopener', 'noreferrer' );
+			}
+
+			$processor->set_attribute( 'rel', implode( ' ', $tokens ) );
 		}
 
-		return $tag;
-	}, $html );
+		return wp_kses_post( $processor->get_updated_html() );
+	}
+
+	// Compatibility fallback for WordPress versions predating WP_HTML_Tag_Processor.
+	// Do not attempt to rewrite raw attributes. The fragment remains sanitized.
+	if ( $should_dofollow ) {
+		$html = preg_replace( '/\bnofollow\b/i', 'external', $html );
+	}
+
+	return wp_kses_post( $html );
 }
 
 // --- Update rel url nofollow - dofollow in execution time of comments
@@ -789,12 +846,7 @@ function remove_DoFollowComment( $c ) {
 		$should_dofollow = true;
 	}
 
-	if ( $should_dofollow ) {
-		// Only replace rel token, not arbitrary 'nofollow' text.
-		$c = preg_replace( '/\\bnofollow\\b/i', 'external', $c );
-	}
-
-	return ndf_harden_comment_links( $c );
+	return ndf_harden_comment_links( $c, $should_dofollow );
 }
 
 // Activate Plugin
